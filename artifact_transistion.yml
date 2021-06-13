@@ -1,0 +1,40 @@
+---
+- hosts: localhost
+  tasks:
+  - name: git cloning to local
+    git:
+      repo: https://github.com/Nikhil-K-95/springboot-webapplication.git
+      version: nexus
+      dest: /opt/git
+      clone: yes
+    register: clone_status
+  - debug:
+      msg: "{{ clone_status }}"
+  - name: running mavan command install
+    shell: mvn clean install
+    args:
+      chdir: /opt/git
+  - name: adding config to mvn setting.xml
+    lineinfile:
+      path: /usr/share/maven/conf/settings.xml
+      regexp: "^<servers>"
+      insertafter: "^<servers>"
+      line:
+        "<servers>
+        <server>
+        <id>maven_releases</id>
+        <username>admin</username>
+        <password>Admin#123</password>
+        </server>
+        <server>
+        <id>maven_snapshots</id>
+        <username>admin</username>
+        <password>Admin#123</password>
+        </server>
+        </servers>"
+      state: present
+  - name: running maven deploy command
+    shell: mvn deploy
+    args:
+      chdir: /opt/git
+
