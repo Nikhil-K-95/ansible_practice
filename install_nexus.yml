@@ -1,0 +1,59 @@
+---
+- hosts: localhost 
+  vars:
+    nexus_dir: /opt
+ 
+ 
+  tasks:
+  - name: check if nexus is present
+    stat:
+      path: "{{ nexus_dir }}/nexus-3.30.1-01-unix.tar.gz"
+    register: existence
+  - name: download if not available
+    get_url:
+      url: https://download.sonatype.com/nexus/3/latest-unix.tar.gz
+      dest: "{{ nexus_dir }}"
+    when: not existence.stat.exists
+  - name: check if nexus is urachived
+    stat:
+      path: "{{ nexus_dir }}/nexus-3.30.1-01"
+    register: unarch_nexus
+  - name: unarchive
+    unarchive:
+      src: "{{ nexus_dir }}/nexus-3.30.1-01-unix.tar.gz" 
+      dest: "{{ nexus_dir }}"
+      remote_src: yes
+    when: not unarch_nexus.stat.exists
+  - name: create nexus user
+    user:
+      name: nexus
+      comment: created for nexus
+  - name: change ownership
+    file:
+      path: "{{ nexus_dir }}/{{ item }}"
+      state: directory
+      recurse: yes
+      owner: nexus
+      group: nexus
+    with_items:
+    - nexus-3.30.1-01
+    - sonatype-work
+  - name: change run as user
+    lineinfile:
+      path: "{{ nexus_dir }}/nexus-3.30.1-01/bin/nexus.rc"
+      regexp: "^#run_as_user*"
+      line: run_as_user="nexus"
+      state: present
+      backup: yes
+  - name: copy template into systemd
+    copy:
+      src: "{{ nexus_dir }}/nexus.service.j2"
+      dest: /etc/systemd/system/nexus.service
+  - name: restart system service
+    systemd:
+      daemon_reload: yes
+  - name: start service
+    service:
+      name: nexus
+      state: restarted
+          
